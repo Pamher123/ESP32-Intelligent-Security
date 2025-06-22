@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>拍照记录</title>
+</head>
+<body>
+  <h1>📷 拍照历史</h1>
+  <button onclick="fetch('/capture').then(() => loadImages())">📸 拍照</button>
+  <div id="gallery"></div>
+  <script>
+    function loadImages() {
+      fetch('/images')
+        .then(res => res.json())
+        .then(data => {
+          const g = document.getElementById('gallery');
+          g.innerHTML = data.map(d => `
+            <div>
+              <p>${d.timestamp}</p>
+              <img src="data:image/bmp;base64,${d.image}" width="200">
+            </div>
+          `).join('');
+        });
+    }
+    loadImages();
+  </script>
+</body>
+</html>

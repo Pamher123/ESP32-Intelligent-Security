@@ -1,0 +1,183 @@
+[
+    {
+        "id": "6696825c006d9c6f",
+        "type": "tab",
+        "label": "发布信息",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "e4acef4dacd248ca",
+        "type": "mqtt out",
+        "z": "6696825c006d9c6f",
+        "name": "esp32发送",
+        "topic": "esp32/sensor",
+        "qos": "2",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_broker",
+        "x": 410,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "88058aa26680e921",
+        "type": "tab",
+        "label": "流程 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "0b1b30061411afc7",
+        "type": "mqtt in",
+        "z": "88058aa26680e921",
+        "name": "订阅传感器数据",
+        "topic": "esp32/sensor",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 100,
+        "y": 180,
+        "wires": [
+            [
+                "eabb875b191084c7"
+            ]
+        ]
+    },
+    {
+        "id": "eabb875b191084c7",
+        "type": "json",
+        "z": "88058aa26680e921",
+        "name": "解析字符串",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 290,
+        "y": 180,
+        "wires": [
+            [
+                "72a8cd090e68c267"
+            ]
+        ]
+    },
+    {
+        "id": "72a8cd090e68c267",
+        "type": "function",
+        "z": "88058aa26680e921",
+        "name": "构建 SQL 插入语句",
+        "func": "// 如果是字符串，尝试转换为对象\nif (typeof msg.payload === 'string') {\n    try {\n        msg.payload = JSON.parse(msg.payload);\n    } catch (e) {\n        node.error(\"JSON解析失败: \" + e.message);\n        return null;\n    }\n}\n\n// 接下来是你的原始判断逻辑\nif (!msg.payload || typeof msg.payload !== 'object') {\n    node.error(\"无效的payload数据: \" + JSON.stringify(msg.payload));\n    return null;\n}\n\nlet light = msg.payload.light;\nlet distance = msg.payload.distance;\n\nif (light === undefined || distance === undefined) {\n    node.error(\"缺少必需的传感器数据: light=\" + light + \", distance=\" + distance);\n    return null;\n}\n\nmsg.topic = \"INSERT INTO sensor_readings (light, distance) VALUES (?, ?)\";\nmsg.payload = [light, distance];\nnode.warn(\"插入数据: \" + JSON.stringify(msg.payload));\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 180,
+        "wires": [
+            [
+                "8846a96ae4093e5a",
+                "abbc1b7907fe5e4b"
+            ]
+        ]
+    },
+    {
+        "id": "8846a96ae4093e5a",
+        "type": "mysql",
+        "z": "88058aa26680e921",
+        "mydb": "mysql_config",
+        "name": "写入 MySQL",
+        "x": 770,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "abbc1b7907fe5e4b",
+        "type": "ui_template",
+        "z": "88058aa26680e921",
+        "group": "1d43ec31e63276e6",
+        "name": "",
+        "order": 0,
+        "width": "6",
+        "height": "15",
+        "format": "<table border=\"1\" style=\"width:100%; text-align:center;\">\n    <thead>\n        <tr>\n            <th>时间</th>\n            <th>光照值 (light)</th>\n            <th>距离 (distance)</th>\n        </tr>\n    </thead>\n    <tbody id=\"sensor-table\"></tbody>\n</table>\n\n<script>\n    (function(scope) {\n    scope.$watch('msg.payload', function(payload) {\n        if (!payload || !Array.isArray(payload)) return;\n\n        const table = document.getElementById('sensor-table');\n        const now = new Date().toLocaleTimeString();\n        const row = `<tr>\n                        <td>${now}</td>\n                        <td>${payload[0]}</td>\n                        <td>${payload[1]}</td>\n                     </tr>`;\n        table.insertAdjacentHTML('afterbegin', row);\n\n        // 最多显示20行，超出自动删除旧的\n        if (table.rows.length > 20) {\n            table.deleteRow(-1);\n        }\n    });\n})(scope);\n</script>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 780,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "mqtt_broker",
+        "type": "mqtt-broker",
+        "name": "本地MQTT服务器",
+        "broker": "192.168.97.65",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "mysql_config",
+        "type": "MySQLdatabase",
+        "name": "MySQL 连接",
+        "host": "localhost",
+        "port": "3306",
+        "db": "yuemiao",
+        "tz": "",
+        "charset": "UTF8"
+    },
+    {
+        "id": "1d43ec31e63276e6",
+        "type": "ui_group",
+        "name": "Default",
+        "tab": "ab854a132e61a723",
+        "order": 1,
+        "disp": true,
+        "width": 6,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "ab854a132e61a723",
+        "type": "ui_tab",
+        "name": "监控",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    }
+]
